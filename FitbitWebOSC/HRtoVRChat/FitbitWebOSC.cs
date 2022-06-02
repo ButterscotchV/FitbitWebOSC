@@ -1,9 +1,11 @@
 using System.Diagnostics;
+using Fitbit.Api.Portable;
+using Fitbit.Api.Portable.OAuth2;
 using HRtoVRChat_OSC_SDK;
 
 namespace FitbitWebOSC.HRtoVRChat
 {
-    public class HRSDKInstance : ExternalHRSDK, IDisposable
+    public class FitbitWebOSC : ExternalHRSDK, IDisposable
     {
         /// <summary>
         /// The name of your SDK
@@ -19,7 +21,7 @@ namespace FitbitWebOSC.HRtoVRChat
         /// If the device transmitting data to the source is connected.
         /// If your service does not support this, then you can point it to IsActive
         /// </summary>
-        public override bool IsOpen { get; set; } = true;
+        public override bool IsOpen { get => FitbitClient != null; set => throw new InvalidOperationException($"The {nameof(IsOpen)} property can not be set"); }
 
         /// <summary>
         /// If there's an active connection to the source
@@ -31,15 +33,38 @@ namespace FitbitWebOSC.HRtoVRChat
         // TODO Make this value load from a config
         public TimeSpan Interval = TimeSpan.FromSeconds(30);
 
+        public FitbitClient? FitbitClient;
+
+        public static readonly string[] FitBitScope = new[]
+        {
+            "heartrate"
+        };
+
         public override bool Initialize()
         {
             // TODO Actually return whether this should be used
-            Console.WriteLine($"Started the FitBit Web API extension for HRtoVRChat_OSC");
+            Console.WriteLine($"Starting the FitBit Web API extension for HRtoVRChat_OSC");
+
+            var oAuth2 = new OAuth2Helper(new FitbitAppCredentials()
+            {
+                ClientId = "temp",
+                ClientSecret = "temp"
+            }, "temp");
+
+            var authUrl = oAuth2.GenerateAuthUrl(FitBitScope);
+            // Open the auth URL in the default web browser
+            Process.Start(authUrl);
+
             return true;
         }
 
         public override void Update()
         {
+            if (FitbitClient == null)
+            {
+                return;
+            }
+
             if (!Timer.IsRunning || Timer.Elapsed > Interval)
             {
                 // Start/Restart the timer

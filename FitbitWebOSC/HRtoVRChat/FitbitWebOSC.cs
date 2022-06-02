@@ -2,7 +2,9 @@ using System.Diagnostics;
 using System.Net;
 using System.Text;
 using Fitbit.Api.Portable;
+using Fitbit.Api.Portable.Models;
 using Fitbit.Api.Portable.OAuth2;
+using Fitbit.Models;
 using HRtoVRChat_OSC_SDK;
 using Newtonsoft.Json;
 
@@ -179,6 +181,9 @@ namespace FitbitWebOSC.HRtoVRChat
                 }
 
                 FitbitClient = new(webConfig.FitbitCredentials, accessToken);
+                IsActive = true;
+
+                Console.WriteLine("Successfully connected to the FitBit Web API!");
 
                 return true;
             }
@@ -190,6 +195,22 @@ namespace FitbitWebOSC.HRtoVRChat
             return false;
         }
 
+        public DatasetInterval? GetLatestDatasetInterval(List<DatasetInterval> dataset)
+        {
+            DateTime latestTime = DateTime.MinValue;
+            DatasetInterval? latestInterval = null;
+
+            foreach (var interval in dataset)
+            {
+                if (interval.Time > latestTime)
+                {
+                    latestInterval = interval;
+                }
+            }
+
+            return latestInterval;
+        }
+
         public override void Update()
         {
             if (FitbitClient == null)
@@ -199,10 +220,31 @@ namespace FitbitWebOSC.HRtoVRChat
 
             if (!Timer.IsRunning || Timer.Elapsed > UpdateInterval)
             {
+                Console.WriteLine($"Fetching updated heartrate...");
+
                 // Start/Restart the timer
                 Timer.Restart();
 
                 // TODO Request from the web API
+                try
+                {
+                    var heartRate = FitbitClient.GetHeartRateIntradayV1(DateTime.UtcNow, HeartRateResolution.oneSecond).GetAwaiter().GetResult();
+                    var latestInterval = GetLatestDatasetInterval(heartRate.Dataset);
+
+                    if (latestInterval != null)
+                    {
+                        HR = latestInterval.Value;
+                        Console.WriteLine($"Updated heartrate with value {latestInterval.Value} from {latestInterval.Time}");
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Failed to update heartrate, no values reported");
+                    }
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                }
             }
         }
 

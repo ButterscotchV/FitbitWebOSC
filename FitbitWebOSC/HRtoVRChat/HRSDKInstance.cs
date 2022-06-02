@@ -27,7 +27,9 @@ namespace FitbitWebOSC.HRtoVRChat
         public override bool IsActive { get; set; } = true;
 
         public Stopwatch Timer = new();
-        public TimeSpan Interval = new();
+
+        // TODO Make this value load from a config
+        public TimeSpan Interval = TimeSpan.FromSeconds(30);
 
         public override bool Initialize()
         {
@@ -43,7 +45,7 @@ namespace FitbitWebOSC.HRtoVRChat
                 // Start/Restart the timer
                 Timer.Restart();
 
-
+                // TODO Request from the web API
             }
         }
 

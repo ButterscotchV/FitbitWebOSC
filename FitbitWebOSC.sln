@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.1.32421.90
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "FitbitWebOSC", "FitbitWebOSC\FitbitWebOSC.csproj", "{8FA13F35-4CEA-4638-B592-C27AE3E33B01}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8FA13F35-4CEA-4638-B592-C27AE3E33B01}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8FA13F35-4CEA-4638-B592-C27AE3E33B01}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8FA13F35-4CEA-4638-B592-C27AE3E33B01}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{8FA13F35-4CEA-4638-B592-C27AE3E33B01}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {B13914D3-985B-460E-8A2B-F72A0115442D}
+	EndGlobalSection
+EndGlobal

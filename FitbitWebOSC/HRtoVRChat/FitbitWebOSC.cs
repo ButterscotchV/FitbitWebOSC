@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Net;
+using System.Text;
 using Fitbit.Api.Portable;
 using Fitbit.Api.Portable.OAuth2;
 using HRtoVRChat_OSC_SDK;
@@ -10,6 +12,9 @@ namespace FitbitWebOSC.HRtoVRChat
     {
         public static readonly string FitbitConfigFolder = Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "FitbitWebOSC"));
         public static readonly string FitbitConfigFile = Path.GetFullPath(Path.Combine(FitbitConfigFolder, "fitbit_web_config.json"));
+
+        public static readonly string OAuthEndpoint = "http://localhost:8080/";
+        public static readonly string OAuthResponse = "<HTML><BODY>FitbitWebOSC has successfully been connected</BODY></HTML>";
 
         public static readonly string[] FitbitScope = new[]
         {
@@ -35,7 +40,7 @@ namespace FitbitWebOSC.HRtoVRChat
         /// <summary>
         /// If there's an active connection to the source
         /// </summary>
-        public override bool IsActive { get; set; } = true;
+        public override bool IsActive { get; set; } = false;
 
         public Stopwatch Timer = new();
 
@@ -56,24 +61,72 @@ namespace FitbitWebOSC.HRtoVRChat
             return JsonSerializer.Deserialize<FitbitWebConfig>(reader);
         }
 
-        public static FitbitWebConfig CreateDefaultConfig(string file)
+        public static void WriteConfig(string file, FitbitWebConfig config)
         {
-            // Create default config
-            var config = new FitbitWebConfig();
+            using var streamWriter = File.CreateText(file);
+            JsonSerializer.Serialize(streamWriter, config);
+        }
 
-            // Write the default config to the file
+        public static string? GetOAuth2Code(string authUrl)
+        {
+            var httpListener = new HttpListener();
             try
             {
-                using var streamWriter = File.CreateText(file);
-                JsonSerializer.Serialize(streamWriter, config);
+                httpListener.Prefixes.Add(OAuthEndpoint);
+                httpListener.Start();
+                var oAuthResponse = httpListener.GetContextAsync();
+
+                // Open the auth URL in the default web browser
+                Process.Start(new ProcessStartInfo() { FileName = authUrl, UseShellExecute = true });
+
+                
+                var responseContext = oAuthResponse.GetAwaiter().GetResult();
+
+                var oauthResponse = responseContext.Request;
+                var response = responseContext.Response;
+
+                try
+                {
+                    byte[] responseBytes = Encoding.UTF8.GetBytes(OAuthResponse);
+
+                    // Get a response stream and write the response to it
+                    response.ContentLength64 = responseBytes.Length;
+                    response.OutputStream.Write(responseBytes, 0, responseBytes.Length);
+
+                    return oauthResponse.QueryString["code"];
+                }
+                finally
+                {
+                    response.Close();
+                }
+            }
+            finally
+            {
+                try
+                {
+                    httpListener.Stop();
+                }
+                catch
+                {
+                    // Ignore
+                }
+            }
+        }
+
+        public bool TryExchangeAuthCode(OAuth2Helper oAuth2, string authCode, out OAuth2AccessToken? outToken)
+        {
+            try
+            {
+                outToken = oAuth2.ExchangeAuthCodeForAccessTokenAsync(authCode).GetAwaiter().GetResult();
+                return true;
             }
             catch (Exception e)
             {
-                // Unable to recover, just return default values
                 Console.WriteLine(e);
             }
 
-            return config;
+            outToken = null;
+            return false;
         }
 
         public override bool Initialize()
@@ -95,17 +148,37 @@ namespace FitbitWebOSC.HRtoVRChat
                 }
                 else
                 {
+                    WriteConfig(FitbitConfigFile, new FitbitWebConfig());
                     Console.WriteLine($"Wrote default config to \"{FitbitConfigFile}\", set the values there and start this again");
-                    webConfig = CreateDefaultConfig(FitbitConfigFile);
                     return false;
                 }
 
                 UpdateInterval = webConfig.UpdateInterval;
-                var oAuth2 = new OAuth2Helper(webConfig.FitbitCredentials, "temp");
+                var oAuth2 = new OAuth2Helper(webConfig.FitbitCredentials, OAuthEndpoint);
 
-                var authUrl = oAuth2.GenerateAuthUrl(FitbitScope);
-                // Open the auth URL in the default web browser
-                Process.Start(new ProcessStartInfo() { FileName = authUrl, UseShellExecute = true });
+                OAuth2AccessToken? accessToken;
+                if (string.IsNullOrWhiteSpace(webConfig.AuthCode) || !TryExchangeAuthCode(oAuth2, webConfig.AuthCode, out accessToken) || accessToken == null)
+                {    
+                    var authUrl = oAuth2.GenerateAuthUrl(FitbitScope);
+                    var authCode = GetOAuth2Code(authUrl);
+
+                    if (authCode == null)
+                    {
+                        Console.WriteLine("Authentication failed!");
+                        return false;
+                    }
+
+                    // Set config auth code
+                    webConfig.AuthCode = authCode;
+                    WriteConfig(FitbitConfigFile, webConfig);
+
+                    if (!TryExchangeAuthCode(oAuth2, webConfig.AuthCode, out accessToken) || accessToken == null)
+                    {
+                        throw new Exception("Unable to acquire an access token!");
+                    }
+                }
+
+                FitbitClient = new(webConfig.FitbitCredentials, accessToken);
 
                 return true;
             }
@@ -140,7 +213,8 @@ namespace FitbitWebOSC.HRtoVRChat
 
         public void Dispose()
         {
-            // TODO Close the web connection (if possible?)
+            FitbitClient?.HttpClient?.Dispose();
+            FitbitClient = null;
         }
     }
 }

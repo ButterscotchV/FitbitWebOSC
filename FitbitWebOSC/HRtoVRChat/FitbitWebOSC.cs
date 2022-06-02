@@ -2,11 +2,20 @@ using System.Diagnostics;
 using Fitbit.Api.Portable;
 using Fitbit.Api.Portable.OAuth2;
 using HRtoVRChat_OSC_SDK;
+using Newtonsoft.Json;
 
 namespace FitbitWebOSC.HRtoVRChat
 {
     public class FitbitWebOSC : ExternalHRSDK, IDisposable
     {
+        public static readonly string FitbitConfigFolder = Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "FitbitWebOSC"));
+        public static readonly string FitbitConfigFile = Path.GetFullPath(Path.Combine(FitbitConfigFolder, "fitbit_web_config.json"));
+
+        public static readonly string[] FitbitScope = new[]
+        {
+            "heartrate"
+        };
+
         /// <summary>
         /// The name of your SDK
         /// </summary>
@@ -31,31 +40,81 @@ namespace FitbitWebOSC.HRtoVRChat
         public Stopwatch Timer = new();
 
         // TODO Make this value load from a config
-        public TimeSpan Interval = TimeSpan.FromSeconds(30);
+        public TimeSpan UpdateInterval = TimeSpan.FromSeconds(30.0);
 
         public FitbitClient? FitbitClient;
 
-        public static readonly string[] FitBitScope = new[]
+        private static readonly JsonSerializer JsonSerializer = new()
         {
-            "heartrate"
+            Formatting = Formatting.Indented
         };
+
+        public static FitbitWebConfig? LoadConfig(string file)
+        {
+            using var streamReader = File.OpenText(file);
+            using var reader = new JsonTextReader(streamReader);
+            return JsonSerializer.Deserialize<FitbitWebConfig>(reader);
+        }
+
+        public static FitbitWebConfig CreateDefaultConfig(string file)
+        {
+            // Create default config
+            var config = new FitbitWebConfig();
+
+            // Write the default config to the file
+            try
+            {
+                using var streamWriter = File.CreateText(file);
+                JsonSerializer.Serialize(streamWriter, config);
+            }
+            catch (Exception e)
+            {
+                // Unable to recover, just return default values
+                Console.WriteLine(e);
+            }
+
+            return config;
+        }
 
         public override bool Initialize()
         {
-            // TODO Actually return whether this should be used
-            Console.WriteLine($"Starting the FitBit Web API extension for HRtoVRChat_OSC");
+            Console.WriteLine($"Starting the FitBit Web API extension for HRtoVRChat_OSC...");
 
-            var oAuth2 = new OAuth2Helper(new FitbitAppCredentials()
+            try
             {
-                ClientId = "temp",
-                ClientSecret = "temp"
-            }, "temp");
+                // Make the config folder if needed
+                if (!Directory.Exists(FitbitConfigFolder))
+                {
+                    Directory.CreateDirectory(FitbitConfigFolder);
+                }
 
-            var authUrl = oAuth2.GenerateAuthUrl(FitBitScope);
-            // Open the auth URL in the default web browser
-            Process.Start(authUrl);
+                FitbitWebConfig webConfig;
+                if (File.Exists(FitbitConfigFile))
+                {
+                    webConfig = LoadConfig(FitbitConfigFile) ?? throw new NullReferenceException($"Unable to load config \"{FitbitConfigFile}\"...");
+                }
+                else
+                {
+                    Console.WriteLine($"Wrote default config to \"{FitbitConfigFile}\", set the values there and start this again");
+                    webConfig = CreateDefaultConfig(FitbitConfigFile);
+                    return false;
+                }
 
-            return true;
+                UpdateInterval = webConfig.UpdateInterval;
+                var oAuth2 = new OAuth2Helper(webConfig.FitbitCredentials, "temp");
+
+                var authUrl = oAuth2.GenerateAuthUrl(FitbitScope);
+                // Open the auth URL in the default web browser
+                Process.Start(new ProcessStartInfo() { FileName = authUrl, UseShellExecute = true });
+
+                return true;
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e);
+            }
+
+            return false;
         }
 
         public override void Update()
@@ -65,7 +124,7 @@ namespace FitbitWebOSC.HRtoVRChat
                 return;
             }
 
-            if (!Timer.IsRunning || Timer.Elapsed > Interval)
+            if (!Timer.IsRunning || Timer.Elapsed > UpdateInterval)
             {
                 // Start/Restart the timer
                 Timer.Restart();

@@ -7,4 +7,10 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <Reference Include="HRtoVRChat_OSC_SDK">
+      <HintPath>..\Libs\HRtoVRChat_OSC_SDK.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
 </Project>

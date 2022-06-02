@@ -14,7 +14,7 @@ namespace FitbitWebOSC.HRtoVRChat
         public static readonly string FitbitConfigFile = Path.GetFullPath(Path.Combine(FitbitConfigFolder, "fitbit_web_config.json"));
 
         public static readonly string OAuthEndpoint = "http://localhost:8080/";
-        public static readonly string OAuthResponse = "<HTML><BODY>FitbitWebOSC has successfully been connected</BODY></HTML>";
+        public static readonly string OAuthResponse = "<html><body>FitbitWebOSC has successfully been connected! You can close this page.</body><script type=\"text/javascript\">self.close();</script></html>";
 
         public static readonly string[] FitbitScope = new[]
         {

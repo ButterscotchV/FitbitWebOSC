@@ -120,9 +120,9 @@ namespace FitbitWebOSC.HRtoVRChat
                 outToken = oAuth2.ExchangeAuthCodeForAccessTokenAsync(authCode).GetAwaiter().GetResult();
                 return true;
             }
-            catch (Exception e)
+            catch
             {
-                Console.WriteLine(e);
+                // Don't print any exceptions
             }
 
             outToken = null;

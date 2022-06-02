@@ -8,6 +8,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Fitbit.Portable\Fitbit.Portable.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="HRtoVRChat_OSC_SDK">
       <HintPath>..\Libs\HRtoVRChat_OSC_SDK.dll</HintPath>
     </Reference>

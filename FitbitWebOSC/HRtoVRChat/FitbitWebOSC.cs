@@ -241,6 +241,11 @@ namespace FitbitWebOSC.HRtoVRChat
                         Console.WriteLine($"Failed to update heartrate, no values reported");
                     }
                 }
+                catch (FitbitRequestException e)
+                {
+                    Console.WriteLine(e);
+                    Console.WriteLine(string.Join('\n', e.ApiErrors.Select(x => $"{x.ErrorType}: {x.Message}")));
+                }
                 catch (Exception e)
                 {
                     Console.WriteLine(e);

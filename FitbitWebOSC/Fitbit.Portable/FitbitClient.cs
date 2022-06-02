@@ -1437,7 +1437,7 @@ namespace Fitbit.Api.Portable
         {
             string resolutionText = GetHeartRateResolution(resolution);
 
-            string apiPath = $"1/user/{encodedUserId}/activities/heart/date/{date:yyyy-MM-dd}/{date:yyyy-MM-dd}/{resolutionText}/time/00:00:00/23:59:59.json";
+            string apiPath = $"1/user/{encodedUserId}/activities/heart/date/{date:yyyy-MM-dd}/1d/{resolutionText}/time/00:00:00/23:59:59.json";
             string apiCall = FitbitClientHelperExtensions.ToFullUrl(apiPath);
 
             return await ProcessHeartRateIntradayTimeSeries(date, apiCall);

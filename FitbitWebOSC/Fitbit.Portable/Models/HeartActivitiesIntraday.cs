@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Fitbit.Api.Portable.Models;
 
 namespace Fitbit.Models

@@ -5,7 +5,6 @@ using System.Text;
 using Fitbit.Api.Portable;
 using Fitbit.Api.Portable.Models;
 using Fitbit.Api.Portable.OAuth2;
-using Fitbit.Models;
 using HRtoVRChat_OSC_SDK;
 using Newtonsoft.Json;
 
@@ -234,7 +233,7 @@ namespace FitbitWebOSC.HRtoVRChat
 
         public DatasetInterval? GetLatestDatasetInterval(List<DatasetInterval> dataset)
         {
-            DateTime latestTime = DateTime.MinValue;
+            var latestTime = DateTime.MinValue;
             DatasetInterval? latestInterval = null;
 
             foreach (var interval in dataset)
@@ -264,28 +263,31 @@ namespace FitbitWebOSC.HRtoVRChat
 
                 try
                 {
-                    var heartRate = FitbitClient.GetHeartRateIntradayV1(DateTime.UtcNow, HeartRateResolution.oneSecond).GetAwaiter().GetResult();
+                    var heartRate = FitbitClient.GetHeartRateIntradayV1(FitbitWebConfig.UseUtcTimezone ? DateTime.UtcNow : DateTime.Now, FitbitWebConfig.HeartRateResolution, useUtcTimezone: FitbitWebConfig.UseUtcTimezone).GetAwaiter().GetResult();
                     var latestInterval = GetLatestDatasetInterval(heartRate.Dataset);
 
                     if (latestInterval != null)
                     {
-                        HR = latestInterval.Value;
+                        var hrTime = FitbitWebConfig.UseUtcTimezone ? latestInterval.Time.ToLocalTime() : latestInterval.Time;
+                        var hrValue = latestInterval.Value;
+
+                        HR = hrValue;
 
                         if (FitbitWebConfig.UseReflectionWorkaround)
                         {
                             try
                             {
                                 SetThroughReflection(HR, IsActive, IsOpen);
-                                Console.WriteLine($"Updated heartrate with value {latestInterval.Value} from {latestInterval.Time} using the reflection workaround");
+                                Console.WriteLine($"Updated heartrate with value {hrValue} from {hrTime} using the reflection workaround");
                             }
                             catch (Exception e)
                             {
-                                Console.WriteLine($"Failed to update heartrate with value {latestInterval.Value} from {latestInterval.Time} using the reflection workaround:\n{e}");
+                                Console.WriteLine($"Failed to update heartrate with value {hrValue} from {hrTime} using the reflection workaround:\n{e}");
                             }
                         }
                         else
                         {
-                            Console.WriteLine($"Updated heartrate with value {latestInterval.Value} from {latestInterval.Time}");
+                            Console.WriteLine($"Updated heartrate with value {hrValue} from {hrTime}");
                         }
                     }
                     else

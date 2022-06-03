@@ -1,8 +1,4 @@
 using System.Diagnostics;
-using System.Linq;
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace Fitbit.Api.Portable.OAuth2
 {

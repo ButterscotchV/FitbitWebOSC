@@ -1,10 +1,4 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Net;
-using System.Net.Http;
-using System.Threading;
-using System.Threading.Tasks;
 using Fitbit.Api.Portable.OAuth2;
 using System.Net.Http.Headers;
 using Fitbit.Api.Portable.Models;
@@ -1433,11 +1427,11 @@ namespace Fitbit.Api.Portable
         /// <param name="resolution">Number of data points to include.</param>
         /// <param name="encodedUserId">Optional: Encoded id of the user.</param>
         /// <returns></returns>
-        public async Task<HeartActivitiesIntraday> GetHeartRateIntradayV1(DateTime date, HeartRateResolution resolution, string encodedUserId = "-")
+        public async Task<HeartActivitiesIntraday> GetHeartRateIntradayV1(DateTime date, HeartRateResolution resolution, string encodedUserId = "-", bool useUtcTimezone = false)
         {
             string resolutionText = GetHeartRateResolution(resolution);
 
-            string apiPath = $"1/user/{encodedUserId}/activities/heart/date/{date:yyyy-MM-dd}/1d/{resolutionText}/time/00:00:00/23:59:59.json";
+            string apiPath = $"1/user/{encodedUserId}/activities/heart/date/{date:yyyy-MM-dd}/1d/{resolutionText}/time/00:00:00/23:59:59.json{(useUtcTimezone ? "?timezone=UTC" : "")}";
             string apiCall = FitbitClientHelperExtensions.ToFullUrl(apiPath);
 
             return await ProcessHeartRateIntradayTimeSeries(date, apiCall);

@@ -1,5 +1,3 @@
-using System;
-
 namespace Fitbit.Api.Portable
 {
     public class StringValueAttribute : Attribute

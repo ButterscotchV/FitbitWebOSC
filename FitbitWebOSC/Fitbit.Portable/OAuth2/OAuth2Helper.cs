@@ -1,9 +1,5 @@
 using Newtonsoft.Json.Linq;
-using System;
-using System.Collections.Generic;
-using System.Net.Http;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace Fitbit.Api.Portable.OAuth2
 {

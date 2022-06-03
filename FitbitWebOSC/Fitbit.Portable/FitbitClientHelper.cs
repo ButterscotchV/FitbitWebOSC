@@ -1,4 +1,3 @@
-using System;
 using Fitbit.Api.Portable.Models;
 
 namespace Fitbit.Api.Portable

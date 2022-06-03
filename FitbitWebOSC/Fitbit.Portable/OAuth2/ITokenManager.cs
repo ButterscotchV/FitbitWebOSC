@@ -1,5 +1,4 @@
 using Fitbit.Api.Portable.OAuth2;
-using System.Threading.Tasks;
 
 namespace Fitbit.Api.Portable
 {

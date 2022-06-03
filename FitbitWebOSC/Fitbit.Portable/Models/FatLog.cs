@@ -1,5 +1,3 @@
-using System;
-
 namespace Fitbit.Models
 {
     //https://wiki.fitbit.com/display/API/API-Get-Body-Fat

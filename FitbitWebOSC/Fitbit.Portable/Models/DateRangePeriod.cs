@@ -1,5 +1,4 @@
 using Fitbit.Api.Portable;
-using System;
 
 namespace Fitbit.Models
 {

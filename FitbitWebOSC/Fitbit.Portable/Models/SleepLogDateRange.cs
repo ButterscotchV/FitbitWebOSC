@@ -1,5 +1,3 @@
-using System;
-
 namespace Fitbit.Api.Portable.Models
 {
     public class SleepLogDateRange

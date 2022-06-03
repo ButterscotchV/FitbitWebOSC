@@ -12,10 +12,13 @@ namespace FitbitWebOSC.HRtoVRChat
             ClientSecret = "<Client Secret>"
         };
 
+        [JsonProperty(PropertyName = "auth_code")]
+        public string AuthCode { get; set; } = "<Auto-Filled>";
+
         [JsonProperty(PropertyName = "update_interval")]
         public TimeSpan UpdateInterval { get; set; } = TimeSpan.FromSeconds(30.0);
 
-        [JsonProperty(PropertyName = "auth_code")]
-        public string AuthCode { get; set; } = "<Auto-Filled>";
+        [JsonProperty(PropertyName = "use_reflection_workaround")]
+        public bool UseReflectionWorkaround { get; set; } = true;
     }
 }

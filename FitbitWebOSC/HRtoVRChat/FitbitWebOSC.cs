@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Net;
+using System.Reflection;
 using System.Text;
 using Fitbit.Api.Portable;
 using Fitbit.Api.Portable.Models;
@@ -49,6 +50,7 @@ namespace FitbitWebOSC.HRtoVRChat
         // TODO Make this value load from a config
         public TimeSpan UpdateInterval = TimeSpan.FromSeconds(30.0);
 
+        public FitbitWebConfig FitbitWebConfig = new();
         public FitbitClient? FitbitClient;
 
         private static readonly JsonSerializer JsonSerializer = new()
@@ -131,6 +133,32 @@ namespace FitbitWebOSC.HRtoVRChat
             return false;
         }
 
+        public void SetThroughReflection(int hr, bool isActive, bool isOpen)
+        {
+            var programType = Type.GetType("HRtoVRChat_OSC.Program, HRtoVRChat_OSC, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null");
+            if (programType == null) throw new InvalidOperationException("Unable to find \"HRtoVRChat_OSC.Program\"");
+
+            var activeHRManagerField = programType.GetField("activeHRManager", BindingFlags.NonPublic | BindingFlags.Static);
+            if (activeHRManagerField == null) throw new InvalidOperationException("Unable to find \"HRtoVRChat_OSC.Program.activeHRManager\"");
+
+            var activeHRManagerValue = activeHRManagerField.GetValue(null);
+            if (activeHRManagerValue == null) throw new InvalidOperationException("Unable to get the value of \"HRtoVRChat_OSC.Program.activeHRManager\"");
+
+            var activeHRManagerType = activeHRManagerValue.GetType();
+            if (activeHRManagerType == null) throw new InvalidOperationException("Unable to get the type of the value of \"HRtoVRChat_OSC.Program.activeHRManager\"");
+
+            var hrField = activeHRManagerType.GetField("HR", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (hrField == null) throw new InvalidOperationException("Unable to find \"HRtoVRChat_OSC.HRManagers.*.HR\"");
+            var isActiveField = activeHRManagerType.GetField("isActive", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (isActiveField == null) throw new InvalidOperationException("Unable to find \"HRtoVRChat_OSC.HRManagers.*.isActive\"");
+            var isOpenField = activeHRManagerType.GetField("isOpen", BindingFlags.NonPublic | BindingFlags.Instance);
+            if (isOpenField == null) throw new InvalidOperationException("Unable to find \"HRtoVRChat_OSC.HRManagers.*.isOpen\"");
+
+            hrField.SetValue(activeHRManagerValue, hr);
+            isActiveField.SetValue(activeHRManagerValue, isActive);
+            isOpenField.SetValue(activeHRManagerValue, isOpen);
+        }
+
         public override bool Initialize()
         {
             Console.WriteLine($"Starting the FitBit Web API extension for HRtoVRChat_OSC...");
@@ -143,23 +171,32 @@ namespace FitbitWebOSC.HRtoVRChat
                     Directory.CreateDirectory(FitbitConfigFolder);
                 }
 
-                FitbitWebConfig webConfig;
                 if (File.Exists(FitbitConfigFile))
                 {
-                    webConfig = LoadConfig(FitbitConfigFile) ?? throw new NullReferenceException($"Unable to load config \"{FitbitConfigFile}\"...");
+                    FitbitWebConfig = LoadConfig(FitbitConfigFile) ?? throw new NullReferenceException($"Unable to load config \"{FitbitConfigFile}\"...");
+                    
+                    try
+                    {
+                        // Write missing default configs and remove invalid configs
+                        WriteConfig(FitbitConfigFile, FitbitWebConfig);
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine($"Failed to re-write config:\n{e}");
+                    }
                 }
                 else
                 {
-                    WriteConfig(FitbitConfigFile, new FitbitWebConfig());
+                    WriteConfig(FitbitConfigFile, FitbitWebConfig);
                     Console.WriteLine($"Wrote default config to \"{FitbitConfigFile}\", set the values there and start this again");
                     return false;
                 }
 
-                UpdateInterval = webConfig.UpdateInterval;
-                var oAuth2 = new OAuth2Helper(webConfig.FitbitCredentials, OAuthEndpoint);
+                UpdateInterval = FitbitWebConfig.UpdateInterval;
+                var oAuth2 = new OAuth2Helper(FitbitWebConfig.FitbitCredentials, OAuthEndpoint);
 
                 OAuth2AccessToken? accessToken;
-                if (string.IsNullOrWhiteSpace(webConfig.AuthCode) || !TryExchangeAuthCode(oAuth2, webConfig.AuthCode, out accessToken) || accessToken == null)
+                if (string.IsNullOrWhiteSpace(FitbitWebConfig.AuthCode) || !TryExchangeAuthCode(oAuth2, FitbitWebConfig.AuthCode, out accessToken) || accessToken == null)
                 {    
                     var authUrl = oAuth2.GenerateAuthUrl(FitbitScope);
                     var authCode = GetOAuth2Code(authUrl);
@@ -171,16 +208,16 @@ namespace FitbitWebOSC.HRtoVRChat
                     }
 
                     // Set config auth code
-                    webConfig.AuthCode = authCode;
-                    WriteConfig(FitbitConfigFile, webConfig);
+                    FitbitWebConfig.AuthCode = authCode;
+                    WriteConfig(FitbitConfigFile, FitbitWebConfig);
 
-                    if (!TryExchangeAuthCode(oAuth2, webConfig.AuthCode, out accessToken) || accessToken == null)
+                    if (!TryExchangeAuthCode(oAuth2, FitbitWebConfig.AuthCode, out accessToken) || accessToken == null)
                     {
                         throw new Exception("Unable to acquire an access token!");
                     }
                 }
 
-                FitbitClient = new(webConfig.FitbitCredentials, accessToken);
+                FitbitClient = new(FitbitWebConfig.FitbitCredentials, accessToken);
                 IsActive = true;
 
                 Console.WriteLine("Successfully connected to the FitBit Web API!");
@@ -225,7 +262,6 @@ namespace FitbitWebOSC.HRtoVRChat
                 // Start/Restart the timer
                 Timer.Restart();
 
-                // TODO Request from the web API
                 try
                 {
                     var heartRate = FitbitClient.GetHeartRateIntradayV1(DateTime.UtcNow, HeartRateResolution.oneSecond).GetAwaiter().GetResult();
@@ -234,7 +270,23 @@ namespace FitbitWebOSC.HRtoVRChat
                     if (latestInterval != null)
                     {
                         HR = latestInterval.Value;
-                        Console.WriteLine($"Updated heartrate with value {latestInterval.Value} from {latestInterval.Time}");
+
+                        if (FitbitWebConfig.UseReflectionWorkaround)
+                        {
+                            try
+                            {
+                                SetThroughReflection(HR, IsActive, IsOpen);
+                                Console.WriteLine($"Updated heartrate with value {latestInterval.Value} from {latestInterval.Time} using the reflection workaround");
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine($"Failed to update heartrate with value {latestInterval.Value} from {latestInterval.Time} using the reflection workaround:\n{e}");
+                            }
+                        }
+                        else
+                        {
+                            Console.WriteLine($"Updated heartrate with value {latestInterval.Value} from {latestInterval.Time}");
+                        }
                     }
                     else
                     {
@@ -243,8 +295,7 @@ namespace FitbitWebOSC.HRtoVRChat
                 }
                 catch (FitbitRequestException e)
                 {
-                    Console.WriteLine(e);
-                    Console.WriteLine(string.Join('\n', e.ApiErrors.Select(x => $"{x.ErrorType}: {x.Message}")));
+                    Console.WriteLine($"{e}\n{string.Join('\n', e.ApiErrors.Select(x => $"{x.ErrorType}: {x.Message}"))}");
                 }
                 catch (Exception e)
                 {

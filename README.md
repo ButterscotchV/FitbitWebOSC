@@ -6,7 +6,7 @@ Run HRtoVRChat_OSC to generate the required folders, then place `FitbitWebOSC.dl
 
 ## Setup
 ### 1. Configuring HRtoVRChat_OSC
-Set the value of `hrType` to `sdk` for using the extension, for other options, check <https://github.com/200Tigersbloxed/HRtoVRChat_OSC#config>.
+Set the value of `hrType` to `sdk` for using the extension. To see other options, check <https://github.com/200Tigersbloxed/HRtoVRChat_OSC#config>.
 
 ### 2. Creating a Fitbit developer application
 Go to the page <https://dev.fitbit.com/apps/new> and start creating a new application, use the values listed below, accept the agreement, and make sure the `OAuth 2.0 Application Type` is still set to the correct value and click the `Register` button once you are done.

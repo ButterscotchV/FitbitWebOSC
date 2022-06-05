@@ -23,7 +23,7 @@ namespace FitbitWebOSC.HRtoVRChat
         /// <summary>
         /// The name of your SDK
         /// </summary>
-        public override string SDKName { get => "fitbitweb"; set => throw new InvalidOperationException("The SDK name can not be modified"); }
+        public override string SDKName { get; set; } = "fitbitweb";
 
         /// <summary>
         /// If the device transmitting data to the source is connected.

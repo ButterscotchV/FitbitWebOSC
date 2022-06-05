@@ -1,7 +1,4 @@
 using System.Diagnostics;
-using System.Net;
-using System.Reflection;
-using System.Text;
 using Fitbit.Api.Portable;
 using Fitbit.Api.Portable.Models;
 using Fitbit.Api.Portable.OAuth2;
@@ -67,66 +64,66 @@ namespace FitbitWebOSC.HRtoVRChat
             JsonSerializer.Serialize(streamWriter, config);
         }
 
-        public static string? GetOAuth2Code(string authUrl)
+        public bool InitializeConfig()
         {
-            var httpListener = new HttpListener();
-            try
+            // Make the config folder if needed
+            if (!Directory.Exists(FitbitConfigFolder))
             {
-                httpListener.Prefixes.Add(OAuthEndpoint);
-                httpListener.Start();
-                var oAuthResponse = httpListener.GetContextAsync();
+                Directory.CreateDirectory(FitbitConfigFolder);
+            }
 
-                // Open the auth URL in the default web browser
-                Process.Start(new ProcessStartInfo() { FileName = authUrl, UseShellExecute = true });
-
-                
-                var responseContext = oAuthResponse.GetAwaiter().GetResult();
-
-                var oauthResponse = responseContext.Request;
-                var response = responseContext.Response;
+            if (File.Exists(FitbitConfigFile))
+            {
+                FitbitWebConfig = LoadConfig(FitbitConfigFile) ?? throw new NullReferenceException($"Unable to load config \"{FitbitConfigFile}\"...");
 
                 try
                 {
-                    byte[] responseBytes = Encoding.UTF8.GetBytes(OAuthResponse);
-
-                    // Get a response stream and write the response to it
-                    response.ContentLength64 = responseBytes.Length;
-                    response.OutputStream.Write(responseBytes, 0, responseBytes.Length);
-
-                    return oauthResponse.QueryString["code"];
+                    // Write missing default configs and remove invalid configs
+                    WriteConfig(FitbitConfigFile, FitbitWebConfig);
                 }
-                finally
+                catch (Exception e)
                 {
-                    response.Close();
+                    Console.WriteLine($"Failed to re-write config:\n{e}");
                 }
             }
-            finally
+            else
             {
-                try
-                {
-                    httpListener.Stop();
-                }
-                catch
-                {
-                    // Ignore
-                }
+                WriteConfig(FitbitConfigFile, FitbitWebConfig);
+                Console.WriteLine($"Wrote default config to \"{FitbitConfigFile}\", set the values there and start this again");
+                return false;
             }
+
+            return true;
         }
 
-        public bool TryExchangeAuthCode(OAuth2Helper oAuth2, string authCode, out OAuth2AccessToken? outToken)
+        public bool InitializeFitbitClient()
         {
-            try
+            var oAuth2 = new OAuth2Helper(FitbitWebConfig.FitbitCredentials, OAuthEndpoint);
+
+            OAuth2AccessToken? accessToken;
+            if (string.IsNullOrWhiteSpace(FitbitWebConfig.AuthCode) || !OAuth2Utils.TryExchangeAuthCodeForAccessToken(oAuth2, FitbitWebConfig.AuthCode, out accessToken) || accessToken == null)
             {
-                outToken = oAuth2.ExchangeAuthCodeForAccessTokenAsync(authCode).GetAwaiter().GetResult();
-                return true;
-            }
-            catch
-            {
-                // Don't print any exceptions
+                var authUrl = oAuth2.GenerateAuthUrl(FitbitScope);
+                var authCode = OAuth2Utils.GetOAuth2CodeFromUrl(authUrl);
+
+                if (authCode == null)
+                {
+                    Console.WriteLine("Authentication failed!");
+                    return false;
+                }
+
+                // Set config auth code
+                FitbitWebConfig.AuthCode = authCode;
+                WriteConfig(FitbitConfigFile, FitbitWebConfig);
+
+                if (!OAuth2Utils.TryExchangeAuthCodeForAccessToken(oAuth2, FitbitWebConfig.AuthCode, out accessToken) || accessToken == null)
+                {
+                    throw new Exception("Unable to acquire an access token!");
+                }
             }
 
-            outToken = null;
-            return false;
+            FitbitClient = new(FitbitWebConfig.FitbitCredentials, accessToken);
+            return true;
         }
 
         public override bool Initialize()
@@ -135,59 +132,11 @@ namespace FitbitWebOSC.HRtoVRChat
 
             try
             {
-                // Make the config folder if needed
-                if (!Directory.Exists(FitbitConfigFolder))
-                {
-                    Directory.CreateDirectory(FitbitConfigFolder);
-                }
-
-                if (File.Exists(FitbitConfigFile))
-                {
-                    FitbitWebConfig = LoadConfig(FitbitConfigFile) ?? throw new NullReferenceException($"Unable to load config \"{FitbitConfigFile}\"...");
-                    
-                    try
-                    {
-                        // Write missing default configs and remove invalid configs
-                        WriteConfig(FitbitConfigFile, FitbitWebConfig);
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine($"Failed to re-write config:\n{e}");
-                    }
-                }
-                else
-                {
-                    WriteConfig(FitbitConfigFile, FitbitWebConfig);
-                    Console.WriteLine($"Wrote default config to \"{FitbitConfigFile}\", set the values there and start this again");
-                    return false;
-                }
+                if (!InitializeConfig()) return false;
 
                 UpdateInterval = FitbitWebConfig.UpdateInterval;
-                var oAuth2 = new OAuth2Helper(FitbitWebConfig.FitbitCredentials, OAuthEndpoint);
 
-                OAuth2AccessToken? accessToken;
-                if (string.IsNullOrWhiteSpace(FitbitWebConfig.AuthCode) || !TryExchangeAuthCode(oAuth2, FitbitWebConfig.AuthCode, out accessToken) || accessToken == null)
-                {    
-                    var authUrl = oAuth2.GenerateAuthUrl(FitbitScope);
-                    var authCode = GetOAuth2Code(authUrl);
-
-                    if (authCode == null)
-                    {
-                        Console.WriteLine("Authentication failed!");
-                        return false;
-                    }
-
-                    // Set config auth code
-                    FitbitWebConfig.AuthCode = authCode;
-                    WriteConfig(FitbitConfigFile, FitbitWebConfig);
-
-                    if (!TryExchangeAuthCode(oAuth2, FitbitWebConfig.AuthCode, out accessToken) || accessToken == null)
-                    {
-                        throw new Exception("Unable to acquire an access token!");
-                    }
-                }
-
-                FitbitClient = new(FitbitWebConfig.FitbitCredentials, accessToken);
+                if (!InitializeFitbitClient()) return false;
                 IsActive = true;
 
                 Console.WriteLine("Successfully connected to the FitBit Web API!");
@@ -202,20 +151,20 @@ namespace FitbitWebOSC.HRtoVRChat
             return false;
         }
 
-        public DatasetInterval? GetLatestDatasetInterval(List<DatasetInterval> dataset)
+        public void SendHeartrate(int heartrate)
         {
-            var latestTime = DateTime.MinValue;
-            DatasetInterval? latestInterval = null;
+            SendMessage(heartrate, IsOpen, IsActive);
+        }
 
-            foreach (var interval in dataset)
-            {
-                if (interval.Time > latestTime)
-                {
-                    latestInterval = interval;
-                }
-            }
+        public void SendMessage(int heartrate, bool isOpen, bool isActive)
+        {
+            // Reuse the message
+            CachedMessage.HR = heartrate;
+            CachedMessage.IsOpen = isOpen;
+            CachedMessage.IsActive = isActive;
 
-            return latestInterval;
+            // Send the reused message
+            CurrentHRData = CachedMessage;
         }
 
         public override void Update()
@@ -227,7 +176,7 @@ namespace FitbitWebOSC.HRtoVRChat
 
             if (!Timer.IsRunning || Timer.Elapsed > UpdateInterval)
             {
-                Console.WriteLine($"Fetching updated heartrate...");
+                Console.WriteLine("Fetching updated heartrate...");
 
                 // Start/Restart the timer
                 Timer.Restart();
@@ -235,29 +184,39 @@ namespace FitbitWebOSC.HRtoVRChat
                 try
                 {
                     var heartRate = FitbitClient.GetHeartRateIntradayV1(FitbitWebConfig.UseUtcTimezone ? DateTime.UtcNow : DateTime.Now, FitbitWebConfig.HeartRateResolution, useUtcTimezone: FitbitWebConfig.UseUtcTimezone).GetAwaiter().GetResult();
-                    var latestInterval = GetLatestDatasetInterval(heartRate.Dataset);
+                    var latestInterval = heartRate.Dataset.GetLatest();
 
                     if (latestInterval != null)
                     {
-                        var hrTime = FitbitWebConfig.UseUtcTimezone ? latestInterval.Time.ToLocalTime() : latestInterval.Time;
+                        // This connection is active, there is data available
+                        IsActive = true;
+
+                        // Send the retrieved heartrate value
                         var hrValue = latestInterval.Value;
+                        SendHeartrate(hrValue);
 
-                        // Reuse the message
-                        CachedMessage.HR = hrValue;
-                        CachedMessage.IsOpen = IsOpen;
-                        CachedMessage.IsActive = IsActive;
-                        CurrentHRData = CachedMessage;
-
+                        // Convert to local time
+                        var hrTime = FitbitWebConfig.UseUtcTimezone ? latestInterval.Time.ToLocalTime() : latestInterval.Time;
                         Console.WriteLine($"Updated heartrate with value {hrValue} from {hrTime}");
                     }
                     else
                     {
-                        Console.WriteLine($"Failed to update heartrate, no values reported");
+                        // This connection is inactive, there is no data available
+                        IsActive = false;
+
+                        // Send the updated IsActive value
+                        SendHeartrate(0);
+
+                        Console.WriteLine("Failed to update heartrate, no values reported");
                     }
                 }
                 catch (FitbitRequestException e)
                 {
                     Console.WriteLine($"{e}\n{string.Join('\n', e.ApiErrors.Select(x => $"{x.ErrorType}: {x.Message}"))}");
+                }
+                catch (Exception e) when (e is TimeoutException || e.InnerException is TimeoutException)
+                {
+                    Console.WriteLine($"Connection timed out, try checking if the Fitbit Web API is down or if your network connection is working as expected\n{e}");
                 }
                 catch (Exception e)
                 {
@@ -273,6 +232,7 @@ namespace FitbitWebOSC.HRtoVRChat
 
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
             FitbitClient?.HttpClient?.Dispose();
             FitbitClient = null;
         }

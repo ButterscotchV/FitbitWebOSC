@@ -29,20 +29,17 @@ namespace FitbitWebOSC.HRtoVRChat
         public override string SDKName { get => "fitbitweb"; set => throw new InvalidOperationException("The SDK name can not be modified"); }
 
         /// <summary>
-        /// The current HeartRate
-        /// </summary>
-        public override int HR { get; set; } = 80;
-
-        /// <summary>
         /// If the device transmitting data to the source is connected.
         /// If your service does not support this, then you can point it to IsActive
         /// </summary>
-        public override bool IsOpen { get => FitbitClient != null; set => throw new InvalidOperationException($"The {nameof(IsOpen)} property can not be set"); }
+        public bool IsOpen => FitbitClient != null;
 
         /// <summary>
         /// If there's an active connection to the source
         /// </summary>
-        public override bool IsActive { get; set; } = false;
+        public bool IsActive { get; set; } = false;
+
+        public Messages.HRMessage CachedMessage = new();
 
         public Stopwatch Timer = new();
 
@@ -130,32 +127,6 @@ namespace FitbitWebOSC.HRtoVRChat
 
             outToken = null;
             return false;
-        }
-
-        public void SetThroughReflection(int hr, bool isActive, bool isOpen)
-        {
-            var programType = Type.GetType("HRtoVRChat_OSC.Program, HRtoVRChat_OSC, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null");
-            if (programType == null) throw new InvalidOperationException("Unable to find \"HRtoVRChat_OSC.Program\"");
-
-            var activeHRManagerField = programType.GetField("activeHRManager", BindingFlags.NonPublic | BindingFlags.Static);
-            if (activeHRManagerField == null) throw new InvalidOperationException("Unable to find \"HRtoVRChat_OSC.Program.activeHRManager\"");
-
-            var activeHRManagerValue = activeHRManagerField.GetValue(null);
-            if (activeHRManagerValue == null) throw new InvalidOperationException("Unable to get the value of \"HRtoVRChat_OSC.Program.activeHRManager\"");
-
-            var activeHRManagerType = activeHRManagerValue.GetType();
-            if (activeHRManagerType == null) throw new InvalidOperationException("Unable to get the type of the value of \"HRtoVRChat_OSC.Program.activeHRManager\"");
-
-            var hrField = activeHRManagerType.GetField("HR", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (hrField == null) throw new InvalidOperationException("Unable to find \"HRtoVRChat_OSC.HRManagers.*.HR\"");
-            var isActiveField = activeHRManagerType.GetField("isActive", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (isActiveField == null) throw new InvalidOperationException("Unable to find \"HRtoVRChat_OSC.HRManagers.*.isActive\"");
-            var isOpenField = activeHRManagerType.GetField("isOpen", BindingFlags.NonPublic | BindingFlags.Instance);
-            if (isOpenField == null) throw new InvalidOperationException("Unable to find \"HRtoVRChat_OSC.HRManagers.*.isOpen\"");
-
-            hrField.SetValue(activeHRManagerValue, hr);
-            isActiveField.SetValue(activeHRManagerValue, isActive);
-            isOpenField.SetValue(activeHRManagerValue, isOpen);
         }
 
         public override bool Initialize()
@@ -271,24 +242,13 @@ namespace FitbitWebOSC.HRtoVRChat
                         var hrTime = FitbitWebConfig.UseUtcTimezone ? latestInterval.Time.ToLocalTime() : latestInterval.Time;
                         var hrValue = latestInterval.Value;
 
-                        HR = hrValue;
+                        // Reuse the message
+                        CachedMessage.HR = hrValue;
+                        CachedMessage.IsOpen = IsOpen;
+                        CachedMessage.IsActive = IsActive;
+                        CurrentHRData = CachedMessage;
 
-                        if (FitbitWebConfig.UseReflectionWorkaround)
-                        {
-                            try
-                            {
-                                SetThroughReflection(HR, IsActive, IsOpen);
-                                Console.WriteLine($"Updated heartrate with value {hrValue} from {hrTime} using the reflection workaround");
-                            }
-                            catch (Exception e)
-                            {
-                                Console.WriteLine($"Failed to update heartrate with value {hrValue} from {hrTime} using the reflection workaround:\n{e}");
-                            }
-                        }
-                        else
-                        {
-                            Console.WriteLine($"Updated heartrate with value {hrValue} from {hrTime}");
-                        }
+                        Console.WriteLine($"Updated heartrate with value {hrValue} from {hrTime}");
                     }
                     else
                     {

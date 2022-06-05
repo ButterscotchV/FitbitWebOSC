@@ -22,9 +22,6 @@ namespace FitbitWebOSC.HRtoVRChat
         [JsonProperty(PropertyName = "update_interval")]
         public TimeSpan UpdateInterval { get; set; } = TimeSpan.FromSeconds(30.0);
 
-        [JsonProperty(PropertyName = "use_reflection_workaround")]
-        public bool UseReflectionWorkaround { get; set; } = true;
-
         [JsonProperty(PropertyName = "use_utc_timezone_for_requests")]
         public bool UseUtcTimezone { get; set; } = true;
     }

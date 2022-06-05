@@ -49,4 +49,4 @@ jobs:
         # Artifact name
         name: FitbitWebOSC
         # A file, directory or wildcard pattern that describes what to upload
-        path: ${{github.workspace}}/Builds
+        path: ${{github.workspace}}/Builds/FitbitWebOSC.dll

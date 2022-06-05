@@ -1,4 +1,4 @@
-name: Build with .NET and Upload as a Pre-Release
+name: Upload a Pre-Release
 
 on:
   push:
@@ -7,7 +7,7 @@ on:
 
 jobs:
   pre-release:
-    name: Build and Upload a Pre-Release
+    name: Upload a Pre-Release
     runs-on: ubuntu-latest
 
     steps:

@@ -41,7 +41,6 @@ fitbit_credentials.ClientSecret | String | "\<Client Secret\>" | The Fitbit appl
 auth_code | String | "\<Auto-Filled\>" | The Fitbit OAuth 2.0 authentication code, this is automatically managed.
 heart_rate_resolution | HeartRateResolution | 1 | The resolution of the heartrate data, `1` is one second, `2` is one minute.
 update_interval | TimeSpan | "00:00:30" | The time between heart rate data requests, the format is `hh:mm:ss`, the minimum recommended value is 30 seconds because of the [API rate-limit](#Rate-Limit).
-use_reflection_workaround | Boolean | true | Whether to use a workaround to work with `v1.10.0` of HRtoVRChat_OSC.
 use_utc_timezone_for_requests | Boolean | true | Whether to use UTC for requests, otherwise your local timezone is used, setting this to `false` may cause issues.
 
 ## API Limitations

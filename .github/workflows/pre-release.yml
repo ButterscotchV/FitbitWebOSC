@@ -1,0 +1,36 @@
+name: Build with .NET and Upload as a Pre-Release
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  pre-release:
+    name: Build and Upload a Pre-Release
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+      with:
+        lfs: true
+        submodules: recursive
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v2
+      with:
+        dotnet-version: 6.0.x
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build
+      run: dotnet publish --no-restore -c Release -o "${{github.workspace}}/Builds"
+    
+    - uses: marvinpinto/action-automatic-releases@latest
+      with:
+        repo_token: ${{secrets.GITHUB_TOKEN}}
+        automatic_release_tag: latest
+        prerelease: true
+        title: Development Build
+        files: ${{github.workspace}}/Builds/FitbitWebOSC.dll

@@ -7,7 +7,7 @@ using Newtonsoft.Json;
 
 namespace FitbitWebOSC.HRtoVRChat
 {
-    public class FitbitWebOSC : ExternalHRSDK, IDisposable
+    public class FitbitWebOSC : HRSDK, IDisposable
     {
         public static readonly string FitbitConfigFolder = Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "FitbitWebOSC"));
         public static readonly string FitbitConfigFile = Path.GetFullPath(Path.Combine(FitbitConfigFolder, "fitbit_web_config.json"));
@@ -20,23 +20,19 @@ namespace FitbitWebOSC.HRtoVRChat
             "heartrate"
         };
 
-        /// <summary>
-        /// The name of your SDK
-        /// </summary>
-        public override string SDKName { get; set; } = "fitbitweb";
+        public override HRSDKOptions Options { get; } = new HRSDKOptions("fitbitweb");
+
+        public override int HR { get; set; } = 0;
 
         /// <summary>
-        /// If the device transmitting data to the source is connected.
-        /// If your service does not support this, then you can point it to IsActive
+        /// True if the connection to the Fitbit web API is open
         /// </summary>
-        public bool IsOpen => FitbitClient != null;
+        public override bool IsOpen { get; set; } = false;
 
         /// <summary>
-        /// If there's an active connection to the source
+        /// True if the device connection is active
         /// </summary>
-        public bool IsActive { get; set; } = false;
-
-        public Messages.HRMessage CachedMessage = new();
+        public override bool IsActive { get; set; } = false;
 
         public Stopwatch Timer = new();
 
@@ -83,13 +79,13 @@ namespace FitbitWebOSC.HRtoVRChat
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine($"Failed to re-write config:\n{e}");
+                    Log(LogLevel.Error, $"Failed to re-write config:\n{e}");
                 }
             }
             else
             {
                 WriteConfig(FitbitConfigFile, FitbitWebConfig);
-                Console.WriteLine($"Wrote default config to \"{FitbitConfigFile}\", set the values there and start this again");
+                Log(LogLevel.Warn, $"Wrote default config to \"{FitbitConfigFile}\", set the values there and start this again");
                 return false;
             }
 
@@ -108,7 +104,7 @@ namespace FitbitWebOSC.HRtoVRChat
 
                 if (authCode == null)
                 {
-                    Console.WriteLine("Authentication failed!");
+                    Log(LogLevel.Error, "Authentication failed!");
                     return false;
                 }
 
@@ -126,48 +122,45 @@ namespace FitbitWebOSC.HRtoVRChat
             return true;
         }
 
-        public override bool Initialize()
+        public override void OnSDKOpened()
         {
-            Console.WriteLine($"Starting the FitBit Web API extension for HRtoVRChat_OSC...");
+            Log(LogLevel.Log, $"Starting the Fitbit Web API extension for HRtoVRChat_OSC...");
 
             try
             {
-                if (!InitializeConfig()) return false;
+                if (!InitializeConfig()) return;
 
                 UpdateInterval = FitbitWebConfig.UpdateInterval;
 
-                if (!InitializeFitbitClient()) return false;
+                if (!InitializeFitbitClient()) return;
+                IsOpen = true;
                 IsActive = true;
 
-                Console.WriteLine("Successfully connected to the FitBit Web API!");
+                Log(LogLevel.Log, "Successfully connected to the FitBit Web API!");
 
-                return true;
+                return;
             }
             catch (Exception e)
             {
-                Console.WriteLine(e);
+                Log(LogLevel.Error, "An error ocurred while initializing the Fitbit Web API client", e: e);
             }
 
-            return false;
+            return;
         }
 
-        public void SendHeartrate(int heartrate)
+        public void SetData(int heartrate, bool isOpen, bool isActive)
         {
-            SendMessage(heartrate, IsOpen, IsActive);
+            HR = heartrate;
+            IsOpen = isOpen;
+            IsActive = isActive;
         }
 
-        public void SendMessage(int heartrate, bool isOpen, bool isActive)
+        public void SetHeartrate(int heartrate)
         {
-            // Reuse the message
-            CachedMessage.HR = heartrate;
-            CachedMessage.IsOpen = isOpen;
-            CachedMessage.IsActive = isActive;
-
-            // Send the reused message
-            CurrentHRData = CachedMessage;
+            SetData(heartrate, IsOpen, IsActive);
         }
 
-        public override void Update()
+        public override void OnSDKUpdate()
         {
             if (FitbitClient == null)
             {
@@ -193,11 +186,11 @@ namespace FitbitWebOSC.HRtoVRChat
 
                         // Send the retrieved heartrate value
                         var hrValue = latestInterval.Value;
-                        SendHeartrate(hrValue);
+                        SetHeartrate(hrValue);
 
                         // Convert to local time
                         var hrTime = FitbitWebConfig.UseUtcTimezone ? latestInterval.Time.ToLocalTime() : latestInterval.Time;
-                        Console.WriteLine($"Updated heartrate with value {hrValue} from {hrTime}");
+                        Log(LogLevel.Log, $"Updated heartrate with value {hrValue} from {hrTime}");
                     }
                     else
                     {
@@ -205,28 +198,43 @@ namespace FitbitWebOSC.HRtoVRChat
                         IsActive = false;
 
                         // Send the updated IsActive value
-                        SendHeartrate(0);
+                        SetHeartrate(0);
 
-                        Console.WriteLine("Failed to update heartrate, no values reported");
+                        Log(LogLevel.Warn, "Failed to update heartrate, no values reported");
                     }
                 }
                 catch (FitbitRequestException e)
                 {
-                    Console.WriteLine($"{e}\n{string.Join('\n', e.ApiErrors.Select(x => $"{x.ErrorType}: {x.Message}"))}");
+                    Log(LogLevel.Error, $"{e}\n{string.Join('\n', e.ApiErrors.Select(x => $"{x.ErrorType}: {x.Message}"))}", e: e);
                 }
                 catch (Exception e) when (e is TimeoutException || e.InnerException is TimeoutException)
                 {
-                    Console.WriteLine($"Connection timed out, try checking if the Fitbit Web API is down or if your network connection is working as expected\n{e}");
+                    Log(LogLevel.Error, $"Connection timed out, try checking if the Fitbit Web API is down or if your network connection is working as expected\n{e}", e: e);
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine(e);
+                    Log(LogLevel.Error, "An error ocurred while updating the heartrate", e: e);
                 }
             }
         }
 
-        public override void Destroy()
+        public void CloseSDK()
         {
+            if (IsReflected)
+                Close();
+            else
+            {
+                IsOpen = false;
+                IsActive = false;
+            }
+        }
+
+        public override void OnSDKClosed()
+        {
+            // Make sure everything is default
+            HR = 0;
+            IsOpen = false;
+            IsActive = false;
             Dispose();
         }
 

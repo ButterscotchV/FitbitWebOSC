@@ -2,7 +2,7 @@
 An extension for [HRtoVRChat_OSC](https://github.com/200Tigersbloxed/HRtoVRChat_OSC) to implement the Fitbit Web API.
 
 ## Installation
-Run HRtoVRChat_OSC to generate the required folders, then place `FitbitWebOSC.dll` into the `%AppData%\HRtoVRChat_OSC\SDKs\` folder.
+Run HRtoVRChat_OSC to generate the required folders, then place `FitbitWebOSC.dll` into the `HRtoVRChat_OSC\SDKs\` folder in the folder you installed the program to (Generally something like `HRtoVRChat_win-x64\HRtoVRChat_OSC\SDKs\`).
 
 ## Setup
 ### 1. Configuring HRtoVRChat_OSC

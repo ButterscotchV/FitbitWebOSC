@@ -8,18 +8,23 @@ namespace FitbitWebOSC.HRtoVRChat
 {
     public class FitbitWebOSC : HRSDK, IDisposable
     {
-        public static readonly string FitbitConfigFolder = Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "FitbitWebOSC"));
+        public static readonly string Name = "FitbitWebOSC";
+        public static readonly string Version = "Beta v1.3";
+
+        public static readonly string ExtensionTitle = $"{Name} ({Version})";
+
+        public static readonly string FitbitConfigFolder = Path.GetFullPath(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), Name));
         public static readonly string FitbitConfigFile = Path.GetFullPath(Path.Combine(FitbitConfigFolder, "fitbit_web_config.json"));
 
         public static readonly string OAuthEndpoint = "http://localhost:8080/";
-        public static readonly string OAuthResponse = "<html><body>FitbitWebOSC has successfully been connected! You can close this page.</body><script type=\"text/javascript\">self.close();</script></html>";
+        public static readonly string OAuthResponse = $"<html><body>{ExtensionTitle} has successfully been connected! You can close this page.</body><script type=\"text/javascript\">self.close();</script></html>";
 
         public static readonly string[] FitbitScope = new[]
         {
             "heartrate"
         };
 
-        public override HRSDKOptions Options { get; } = new HRSDKOptions("FitbitWeb");
+        public override HRSDKOptions Options { get; } = new HRSDKOptions(Name);
 
         public override int HR { get; set; } = 0;
 
@@ -122,24 +127,26 @@ namespace FitbitWebOSC.HRtoVRChat
 
         public override void OnSDKOpened()
         {
-            Log(LogLevel.Log, $"Starting the Fitbit Web API extension for HRtoVRChat_OSC...");
+            Log(LogLevel.Log, $"Initializing {ExtensionTitle}...");
 
             try
             {
+                Log(LogLevel.Log, "Loading the config...");
                 if (!InitializeConfig()) return;
 
                 UpdateInterval = FitbitWebConfig.UpdateInterval;
 
+                Log(LogLevel.Log, "Starting the connection to the Fitbit Web API...");
                 if (!InitializeFitbitClient()) return;
                 IsActive = true;
 
-                Log(LogLevel.Log, "Successfully connected to the FitBit Web API!");
+                Log(LogLevel.Log, $"{ExtensionTitle} has initialized successfully!");
 
                 return;
             }
             catch (Exception e)
             {
-                Log(LogLevel.Error, "An error ocurred while initializing the Fitbit Web API client", e: e);
+                Log(LogLevel.Error, $"An error ocurred while initializing {ExtensionTitle}:\n{e}", e: e);
             }
 
             return;

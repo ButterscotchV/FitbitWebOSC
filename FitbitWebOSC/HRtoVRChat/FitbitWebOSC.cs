@@ -24,19 +24,18 @@ namespace FitbitWebOSC.HRtoVRChat
         public override int HR { get; set; } = 0;
 
         /// <summary>
-        /// True if the connection to the Fitbit web API is open
+        /// True if there is heartrate data available from the Fitbit Web API
         /// </summary>
         public override bool IsOpen { get; set; } = false;
 
         /// <summary>
-        /// True if the device connection is active
+        /// True if the connection to the Fitbit Web API is open
         /// </summary>
         public override bool IsActive { get; set; } = false;
 
-        public Stopwatch Timer = new();
-
-        // TODO Make this value load from a config
         public TimeSpan UpdateInterval = TimeSpan.FromSeconds(30.0);
+
+        private readonly Stopwatch _timer = new();
 
         public FitbitWebConfig FitbitWebConfig = new();
         public FitbitClient? FitbitClient;
@@ -132,7 +131,6 @@ namespace FitbitWebOSC.HRtoVRChat
                 UpdateInterval = FitbitWebConfig.UpdateInterval;
 
                 if (!InitializeFitbitClient()) return;
-                IsOpen = true;
                 IsActive = true;
 
                 Log(LogLevel.Log, "Successfully connected to the FitBit Web API!");
@@ -153,20 +151,15 @@ namespace FitbitWebOSC.HRtoVRChat
             PushData();
         }
 
-        public void SendData(int heartrate, bool isOpen, bool isActive)
+        public void SendData(int? heartrate = null, bool? isOpen = null, bool? isActive = null)
         {
             // Update the current data
-            HR = heartrate;
-            IsOpen = isOpen;
-            IsActive = isActive;
+            if (heartrate != null) HR = heartrate.Value;
+            if (isOpen != null) IsOpen = isOpen.Value;
+            if (isActive != null) IsActive = isActive.Value;
 
             // Send the updated data to the server
             SendData();
-        }
-
-        public void SendData(int heartrate, bool isActive = true)
-        {
-            SendData(heartrate, IsOpen, isActive);
         }
 
         public override void OnSDKUpdate()
@@ -176,12 +169,12 @@ namespace FitbitWebOSC.HRtoVRChat
                 return;
             }
 
-            if (!Timer.IsRunning || Timer.Elapsed > UpdateInterval)
+            if (!_timer.IsRunning || _timer.Elapsed > UpdateInterval)
             {
                 Log(LogLevel.Log, "Fetching updated heartrate...");
 
                 // Start/Restart the timer
-                Timer.Restart();
+                _timer.Restart();
 
                 try
                 {
@@ -190,9 +183,9 @@ namespace FitbitWebOSC.HRtoVRChat
 
                     if (latestInterval != null)
                     {
-                        // Send the retrieved heartrate value and mark as active
+                        // Send the retrieved heartrate value and mark as open
                         var hrValue = latestInterval.Value;
-                        SendData(hrValue, true);
+                        SendData(heartrate: hrValue, isOpen: true);
 
                         // Convert to local time for logging
                         var hrTime = FitbitWebConfig.UseUtcTimezone ? latestInterval.Time.ToLocalTime() : latestInterval.Time;
@@ -200,8 +193,8 @@ namespace FitbitWebOSC.HRtoVRChat
                     }
                     else
                     {
-                        // Mark as inactive
-                        SendData(0, false);
+                        // Mark as closed
+                        SendData(isOpen: false);
 
                         Log(LogLevel.Warn, "Failed to update heartrate, no values reported");
                     }

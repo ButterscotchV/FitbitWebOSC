@@ -60,6 +60,7 @@ namespace FitbitWebOSC.HRtoVRChat
         public static void WriteConfig(string file, FitbitWebConfig config)
         {
             using var streamWriter = File.CreateText(file);
+            config.LastRunVersion = ExtensionTitle;
             JsonSerializer.Serialize(streamWriter, config);
         }
 

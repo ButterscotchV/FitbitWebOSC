@@ -6,6 +6,9 @@ namespace FitbitWebOSC.HRtoVRChat
 {
     public class FitbitWebConfig
     {
+        [JsonProperty(PropertyName = "last_run_version")]
+        public string LastRunVersion { get; set; } = FitbitWebOSC.ExtensionTitle;
+
         [JsonProperty(PropertyName = "fitbit_credentials")]
         public FitbitAppCredentials FitbitCredentials { get; set; } = new()
         {

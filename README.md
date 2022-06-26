@@ -36,6 +36,7 @@ The config file is auto-generated at `%AppData%\FitbitWebOSC\fitbit_web_config.j
 
 Config Option | Value Type | Default Value | Description
 --- | :---: | :---: | ---
+last_run_version | String | **Dynamic** | The last version of the extension that was run (for information purposes only).
 fitbit_credentials.ClientId | String | "\<OAuth 2.0 Client ID\>" | The Fitbit application OAuth 2.0 Client ID.
 fitbit_credentials.ClientSecret | String | "\<Client Secret\>" | The Fitbit application Client Secret.
 auth_code | String | "\<Auto-Filled\>" | The Fitbit OAuth 2.0 authentication code, this is automatically managed.

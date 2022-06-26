@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using Fitbit.Api.Portable;
-using Fitbit.Api.Portable.Models;
 using Fitbit.Api.Portable.OAuth2;
 using HRtoVRChat_OSC_SDK;
 using Newtonsoft.Json;
@@ -20,7 +19,7 @@ namespace FitbitWebOSC.HRtoVRChat
             "heartrate"
         };
 
-        public override HRSDKOptions Options { get; } = new HRSDKOptions("fitbitweb");
+        public override HRSDKOptions Options { get; } = new HRSDKOptions("FitbitWeb");
 
         public override int HR { get; set; } = 0;
 
@@ -148,16 +147,26 @@ namespace FitbitWebOSC.HRtoVRChat
             return;
         }
 
-        public void SetData(int heartrate, bool isOpen, bool isActive)
+        public void SendData()
         {
+            // Push the current data to the server
+            PushData();
+        }
+
+        public void SendData(int heartrate, bool isOpen, bool isActive)
+        {
+            // Update the current data
             HR = heartrate;
             IsOpen = isOpen;
             IsActive = isActive;
+
+            // Send the updated data to the server
+            SendData();
         }
 
-        public void SetHeartrate(int heartrate)
+        public void SendData(int heartrate, bool isActive = true)
         {
-            SetData(heartrate, IsOpen, IsActive);
+            SendData(heartrate, IsOpen, isActive);
         }
 
         public override void OnSDKUpdate()
@@ -169,7 +178,7 @@ namespace FitbitWebOSC.HRtoVRChat
 
             if (!Timer.IsRunning || Timer.Elapsed > UpdateInterval)
             {
-                Console.WriteLine("Fetching updated heartrate...");
+                Log(LogLevel.Log, "Fetching updated heartrate...");
 
                 // Start/Restart the timer
                 Timer.Restart();
@@ -181,24 +190,18 @@ namespace FitbitWebOSC.HRtoVRChat
 
                     if (latestInterval != null)
                     {
-                        // This connection is active, there is data available
-                        IsActive = true;
-
-                        // Send the retrieved heartrate value
+                        // Send the retrieved heartrate value and mark as active
                         var hrValue = latestInterval.Value;
-                        SetHeartrate(hrValue);
+                        SendData(hrValue, true);
 
-                        // Convert to local time
+                        // Convert to local time for logging
                         var hrTime = FitbitWebConfig.UseUtcTimezone ? latestInterval.Time.ToLocalTime() : latestInterval.Time;
                         Log(LogLevel.Log, $"Updated heartrate with value {hrValue} from {hrTime}");
                     }
                     else
                     {
-                        // This connection is inactive, there is no data available
-                        IsActive = false;
-
-                        // Send the updated IsActive value
-                        SetHeartrate(0);
+                        // Mark as inactive
+                        SendData(0, false);
 
                         Log(LogLevel.Warn, "Failed to update heartrate, no values reported");
                     }

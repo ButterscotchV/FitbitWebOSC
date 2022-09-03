@@ -26,7 +26,7 @@ Redirect URL | http://localhost:8080/ | This is the URL that the authentication 
 Default Access Type | Read Only | Write access is not needed.
 
 ### 3. Configuring the extension
-Refer to [the config documentation](#Config) for where to find the config and what options are available. Copy the `OAuth 2.0 Client ID` from the application details page and put it into the `ClientId` config, then copy the `Client Secret` and put it into the `ClientSecret` config.
+Refer to [the config documentation](#Config) for where to find the config and what options are available. Copy the `OAuth 2.0 Client ID` from the application details page and put it into the `ClientId` config (without the `<` or `>`), then copy the `Client Secret` and put it into the `ClientSecret` config (without the `<` or `>`).
 
 ### 4. Authorize the extension
 Run the program and allow access to your heartrate data through the Fitbit page that is opened in your browser, this should finish the setup of the extension and allow usage of your Fitbit data on your local computer.

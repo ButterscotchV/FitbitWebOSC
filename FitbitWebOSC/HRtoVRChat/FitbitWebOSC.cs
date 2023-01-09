@@ -9,7 +9,7 @@ namespace FitbitWebOSC.HRtoVRChat
     public class FitbitWebOSC : HRSDK, IDisposable
     {
         public static readonly string Name = "FitbitWebOSC";
-        public static readonly string Version = "Beta v1.3";
+        public static readonly string Version = "Beta v1.4";
 
         public static readonly string ExtensionTitle = $"{Name} ({Version})";
 

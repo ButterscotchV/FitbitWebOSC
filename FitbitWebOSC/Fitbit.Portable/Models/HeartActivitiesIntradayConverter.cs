@@ -1,5 +1,5 @@
-using Newtonsoft.Json;
 using Fitbit.Models;
+using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 
 namespace Fitbit.Api.Portable.Models

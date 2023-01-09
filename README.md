@@ -4,6 +4,8 @@ An extension for [HRtoVRChat_OSC](https://github.com/200Tigersbloxed/HRtoVRChat_
 ## Installation
 Run HRtoVRChat_OSC to generate the required folders, then place `FitbitWebOSC.dll` into the `HRtoVRChat_OSC\SDKs\` folder in the folder you installed the program to (Generally something like `HRtoVRChat_win-x64\HRtoVRChat_OSC\SDKs\`).
 
+If you're using the HR to VRChat Launcher, then the SDK folder will be at `%AppData%\HRtoVRChatLauncher\HRtoVRChat\HRtoVRChat_OSC\SDKs`.
+
 ## Setup
 ### 1. Configuring HRtoVRChat_OSC
 Set the value of `hrType` to `sdk` for using the extension. To see other options, check <https://github.com/200Tigersbloxed/HRtoVRChat_OSC#config>.
